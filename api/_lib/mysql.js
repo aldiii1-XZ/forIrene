@@ -22,7 +22,7 @@ export function getPool() {
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
-      ssl: process.env.MYSQL_SSL === "false" ? undefined : { rejectUnauthorized: false },
+ssl: process.env.MYSQL_SSL === "false" ? false : true,
     });
   }
 

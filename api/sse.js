@@ -4,7 +4,7 @@ function jsonStringify(data) {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
-export default async function handler(request) {
+export async function GET(request) {
   const pool = getPool();
   const stream = new ReadableStream({
     async start(controller) {
