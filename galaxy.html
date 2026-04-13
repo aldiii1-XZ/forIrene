@@ -219,6 +219,11 @@
 
     .add-submit:hover { background: rgba(160, 80, 255, 0.45); }
 
+    .add-submit:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
     /* Top hint */
     #hint {
       position: fixed;
@@ -335,6 +340,7 @@ let targetRotY = 0;
 let zoom = 1;
 let targetZoom = 1;
 let photos = [...SAMPLE_PHOTOS];
+let pendingUploadFile = null;
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 3;
 
@@ -360,6 +366,7 @@ function init() {
   addLights();
   animate();
   bindEvents();
+  loadStoredPhotos();
 }
 
 function resetAddPanel({ keepCaption = false } = {}) {
@@ -368,6 +375,7 @@ function resetAddPanel({ keepCaption = false } = {}) {
   const errorBox = document.getElementById("add-error");
   const captionInput = document.getElementById("caption-input");
 
+  pendingUploadFile = null;
   fileInput.value = "";
   previewThumb.src = "";
   previewThumb.style.display = "none";
@@ -381,6 +389,41 @@ function resetAddPanel({ keepCaption = false } = {}) {
 
 function clampZoom(nextZoom) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+}
+
+function clearPhotoCards() {
+  photoMeshes.forEach((mesh) => {
+    scene.remove(mesh);
+    mesh.geometry.dispose();
+
+    if (mesh.material.map) {
+      mesh.material.map.dispose();
+    }
+
+    mesh.material.dispose();
+  });
+
+  photoMeshes = [];
+}
+
+function renderPhotos(nextPhotos) {
+  photos = nextPhotos.length ? nextPhotos : [...SAMPLE_PHOTOS];
+  clearPhotoCards();
+  buildPhotoCards();
+}
+
+async function loadStoredPhotos() {
+  try {
+    const response = await fetch("/api/photos");
+    if (!response.ok) {
+      throw new Error("Request daftar foto gagal.");
+    }
+
+    const data = await response.json();
+    renderPhotos(Array.isArray(data.photos) ? data.photos : []);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 // Particle field
@@ -589,6 +632,8 @@ function bindEvents() {
   const previewThumb = document.getElementById("preview-thumb");
   const captionInput = document.getElementById("caption-input");
   const errorBox = document.getElementById("add-error");
+  const submitButton = document.getElementById("do-add");
+  const submitButtonDefaultText = submitButton.textContent;
 
   ["gesturestart", "gesturechange", "gestureend"].forEach((eventName) => {
     document.addEventListener(eventName, (e) => {
@@ -719,6 +764,7 @@ function bindEvents() {
       return;
     }
 
+    pendingUploadFile = file;
     const reader = new FileReader();
     reader.onload = (ev) => {
       previewThumb.src = ev.target.result;
@@ -729,20 +775,43 @@ function bindEvents() {
     reader.readAsDataURL(file);
   };
 
-  document.getElementById("do-add").onclick = () => {
-    const src = previewThumb.dataset.src || null;
-    if (!src) {
+  submitButton.onclick = async () => {
+    if (!pendingUploadFile) {
       errorBox.textContent = "Pilih foto dulu.";
       return;
     }
 
     const caption = captionInput.value.trim() || `Photo ${photos.length + 1}`;
-    const newPhoto = { src, caption };
-    photos.push(newPhoto);
-    buildCard(newPhoto, photos.length - 1);
+    const formData = new FormData();
+    formData.append("file", pendingUploadFile);
+    formData.append("caption", caption);
 
-    resetAddPanel();
-    addPanel.classList.remove("open");
+    submitButton.disabled = true;
+    submitButton.textContent = "Uploading...";
+    errorBox.textContent = "Menyimpan foto...";
+
+    try {
+      const response = await fetch("/api/photos", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.photo) {
+        throw new Error(data.error || "Upload foto gagal.");
+      }
+
+      photos.push(data.photo);
+      renderPhotos(photos);
+
+      resetAddPanel();
+      addPanel.classList.remove("open");
+    } catch (error) {
+      errorBox.textContent = error.message || "Upload foto gagal.";
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = submitButtonDefaultText;
+    }
   };
 
   document.getElementById("lightbox-close").onclick = closeLightbox;

@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS photos (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  image_url VARCHAR(2048) NOT NULL,
+  caption VARCHAR(120) NOT NULL,
+  storage_path VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_photos_created_at (created_at)
+);
