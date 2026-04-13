@@ -192,6 +192,13 @@
       border: 1px solid rgba(180, 100, 255, 0.4);
     }
 
+    #add-error {
+      min-height: 16px;
+      color: #ff9fbf;
+      font-size: 11px;
+      text-align: center;
+    }
+
     .add-submit {
       padding: 10px;
       background: rgba(160, 80, 255, 0.25);
@@ -240,6 +247,7 @@
   <label for="file-input" class="file-label">Choose Image</label>
   <input type="file" id="file-input" accept="image/*"/>
   <img id="preview-thumb" src="" alt="preview"/>
+  <div id="add-error"></div>
   <input type="text" id="caption-input" placeholder="Caption (optional)..."/>
   <button class="add-submit" id="do-add">Launch into Galaxy ✦</button>
 </div>
@@ -343,6 +351,23 @@ function init() {
   addLights();
   animate();
   bindEvents();
+}
+
+function resetAddPanel({ keepCaption = false } = {}) {
+  const fileInput = document.getElementById("file-input");
+  const previewThumb = document.getElementById("preview-thumb");
+  const errorBox = document.getElementById("add-error");
+  const captionInput = document.getElementById("caption-input");
+
+  fileInput.value = "";
+  previewThumb.src = "";
+  previewThumb.style.display = "none";
+  previewThumb.dataset.src = "";
+  errorBox.textContent = "";
+
+  if (!keepCaption) {
+    captionInput.value = "";
+  }
 }
 
 // Particle field
@@ -545,6 +570,11 @@ function animate() {
 // Events
 function bindEvents() {
   const canvas = renderer.domElement;
+  const addPanel = document.getElementById("add-panel");
+  const fileInput = document.getElementById("file-input");
+  const previewThumb = document.getElementById("preview-thumb");
+  const captionInput = document.getElementById("caption-input");
+  const errorBox = document.getElementById("add-error");
 
   canvas.addEventListener("mousedown", (e) => {
     isDragging = true;
@@ -637,38 +667,47 @@ function bindEvents() {
   };
 
   document.getElementById("add-photo-btn").onclick = () => {
-    document.getElementById("add-panel").classList.toggle("open");
+    const willOpen = !addPanel.classList.contains("open");
+    addPanel.classList.toggle("open");
+
+    if (!willOpen) {
+      resetAddPanel();
+    }
   };
 
-  document.getElementById("file-input").onchange = (e) => {
+  fileInput.onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      resetAddPanel({ keepCaption: true });
+      errorBox.textContent = "File harus berupa gambar.";
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const thumb = document.getElementById("preview-thumb");
-      thumb.src = ev.target.result;
-      thumb.style.display = "block";
-      thumb.dataset.src = ev.target.result;
+      previewThumb.src = ev.target.result;
+      previewThumb.style.display = "block";
+      previewThumb.dataset.src = ev.target.result;
+      errorBox.textContent = "";
     };
     reader.readAsDataURL(file);
   };
 
-  document.querySelector(".file-label").onclick = () => {
-    document.getElementById("file-input").click();
-  };
-
   document.getElementById("do-add").onclick = () => {
-    const src = document.getElementById("preview-thumb").dataset.src || null;
-    const caption = document.getElementById("caption-input").value || `Photo ${photos.length + 1}`;
+    const src = previewThumb.dataset.src || null;
+    if (!src) {
+      errorBox.textContent = "Pilih foto dulu.";
+      return;
+    }
+
+    const caption = captionInput.value.trim() || `Photo ${photos.length + 1}`;
     const newPhoto = { src, caption };
     photos.push(newPhoto);
     buildCard(newPhoto, photos.length - 1);
 
-    document.getElementById("preview-thumb").style.display = "none";
-    document.getElementById("preview-thumb").dataset.src = "";
-    document.getElementById("caption-input").value = "";
-    document.getElementById("add-panel").classList.remove("open");
+    resetAddPanel();
+    addPanel.classList.remove("open");
   };
 
   document.getElementById("lightbox-close").onclick = closeLightbox;
