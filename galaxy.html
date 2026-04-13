@@ -367,6 +367,7 @@ function init() {
   animate();
   bindEvents();
   loadStoredPhotos();
+  connectSSE();
 }
 
 function resetAddPanel({ keepCaption = false } = {}) {
@@ -425,6 +426,51 @@ async function loadStoredPhotos() {
     console.error(error);
   }
 }
+
+let eventSource = null;
+
+function connectSSE() {
+  if (eventSource) {
+    eventSource.close();
+  }
+
+  eventSource = new EventSource('/api/sse');
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === 'new_photo') {
+        // Prepend new photo if not already in list (avoid dupes)
+        if (!photos.find(p => p.id === data.photo.id)) {
+          photos.unshift(data.photo);
+          renderPhotos(photos);
+        }
+      } else if (data.type === 'recent_photos') {
+        // Merge recent photos
+        data.photos.forEach(photo => {
+          if (!photos.find(p => p.id === photo.id)) {
+            photos.push(photo);
+          }
+        });
+        renderPhotos(photos);
+      } else if (data.type === 'error') {
+        console.error('SSE error:', data.message);
+      }
+    } catch (err) {
+      console.error('SSE parse error:', err);
+    }
+  };
+
+  eventSource.onerror = () => {
+    console.log('SSE reconnecting...');
+    setTimeout(connectSSE, 3000);
+  };
+
+  eventSource.onopen = () => {
+    console.log('SSE connected');
+  };
+}
+
 
 // Particle field
 function buildParticles() {

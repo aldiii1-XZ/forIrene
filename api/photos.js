@@ -40,67 +40,67 @@ async function listAllPhotos() {
   }));
 }
 
-export default async function handler(request) {
-  if (request.method === "GET") {
-    try {
-      const photos = await listAllPhotos();
-      return json({ photos });
-    } catch (error) {
-      return json(
-        { error: "Gagal mengambil daftar foto.", detail: error.message },
-        { status: 500 }
-      );
-    }
+export async function GET() {
+  try {
+    const photos = await listAllPhotos();
+    return json({ photos });
+  } catch (error) {
+    return json(
+      { error: "Gagal mengambil daftar foto.", detail: error.message },
+      { status: 500 }
+    );
   }
+}
 
-  if (request.method === "POST") {
-    try {
-      const pool = getPool();
-      const formData = await request.formData();
-      const file = formData.get("file");
-      const caption = sanitizeCaption(formData.get("caption"));
+export async function POST(request) {
+  try {
+    const pool = getPool();
+    const formData = await request.formData();
+    const file = formData.get("file");
+    const caption = sanitizeCaption(formData.get("caption"));
 
-      if (!(file instanceof File)) {
-        return json({ error: "File foto wajib diisi." }, { status: 400 });
-      }
-
-      if (!file.type.startsWith("image/")) {
-        return json({ error: "File harus berupa gambar." }, { status: 400 });
-      }
-
-      const blob = await put(buildPathname(file, caption), file, {
-        access: "public",
-        addRandomSuffix: true,
-        contentType: file.type,
-      });
-
-      const [result] = await pool.execute(
-        `INSERT INTO photos (image_url, caption, storage_path)
-         VALUES (?, ?, ?)`,
-        [blob.url, caption || "Memory", blob.pathname]
-      );
-
-      return json({
-        photo: {
-          id: result.insertId,
-          src: blob.url,
-          caption: caption || "Memory",
-          uploadedAt: new Date().toISOString(),
-          pathname: blob.pathname,
-        },
-      });
-    } catch (error) {
-      return json(
-        { error: "Upload foto gagal.", detail: error.message },
-        { status: 500 }
-      );
+    if (!(file instanceof File)) {
+      return json({ error: "File foto wajib diisi." }, { status: 400 });
     }
-  }
 
-  return new Response("Method Not Allowed", {
-    status: 405,
+    if (!file.type.startsWith("image/")) {
+      return json({ error: "File harus berupa gambar." }, { status: 400 });
+    }
+
+    const blob = await put(buildPathname(file, caption), file, {
+      access: "public",
+      addRandomSuffix: true,
+      contentType: file.type,
+    });
+
+    const [result] = await pool.execute(
+      `INSERT INTO photos (image_url, caption, storage_path)
+       VALUES (?, ?, ?)`,
+      [blob.url, caption || "Memory", blob.pathname]
+    );
+
+    return json({
+      photo: {
+        id: result.insertId,
+        src: blob.url,
+        caption: caption || "Memory",
+        uploadedAt: new Date().toISOString(),
+        pathname: blob.pathname,
+      },
+    });
+  } catch (error) {
+    return json(
+      { error: "Upload foto gagal.", detail: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+export function OPTIONS() {
+  return new Response(null, {
+    status: 204,
     headers: {
-      Allow: "GET, POST",
+      Allow: "GET, POST, OPTIONS",
     },
   });
 }
