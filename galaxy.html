@@ -292,9 +292,25 @@ function loadScript(src) {
 
 loadScript(THREEJS_CDN).then(init);
 
-// Sample placeholder photos
-// Replace / extend with real URLs or base64 after loading
-const SAMPLE_PHOTOS = Array.from({ length: 24 }, (_, index) => ({
+const PHOTO_SLOT_COUNT = 24;
+const BLUR_OBJECT_COUNT = 18;
+const LOCAL_PHOTO_FILES = [
+  "image 1.png",
+  "image 10.png",
+  "image 11.png",
+  "image 12.png",
+  "image 13.png",
+  "image 2.png",
+  "image 3.png",
+  "image 4.png",
+  "image 5.png",
+  "image 6.png",
+  "image 7.png",
+  "image 8.png",
+  "image 9.png",
+];
+
+const SAMPLE_PHOTOS = Array.from({ length: PHOTO_SLOT_COUNT }, (_, index) => ({
   src: null,
   caption: `Memory ${index + 1}`,
 }));
@@ -328,9 +344,194 @@ function makePlaceholderCanvas(color, label) {
   return c;
 }
 
+function normalizeCaption(value, fallback) {
+  const clean = (value || "").trim();
+  return clean || fallback;
+}
+
+function formatCaptionFromFilename(fileName) {
+  return fileName
+    .replace(/\.[^.]+$/, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function localPhotoUrl(fileName) {
+  return `/foto.png/${encodeURIComponent(fileName)}`;
+}
+
+function buildLocalPhotos(fileNames) {
+  return fileNames.map((fileName, index) => ({
+    id: `local-${index}`,
+    src: localPhotoUrl(fileName),
+    caption: normalizeCaption(
+      formatCaptionFromFilename(fileName),
+      `Memory ${index + 1}`
+    ),
+    storage_path: fileName,
+    isLocal: true,
+  }));
+}
+
+function getSourcePhotoKey(photo) {
+  if (photo?.id !== undefined && photo?.id !== null) {
+    return `id:${photo.id}`;
+  }
+
+  if (photo?.storage_path) {
+    return `path:${photo.storage_path}`;
+  }
+
+  if (photo?.src) {
+    return `src:${photo.src}`;
+  }
+
+  return `caption:${photo?.caption || "memory"}`;
+}
+
+function normalizeSourcePhoto(photo, index = 0) {
+  return {
+    ...photo,
+    caption: normalizeCaption(photo?.caption, `Memory ${index + 1}`),
+  };
+}
+
+function mergePhotoSources(...groups) {
+  const merged = new Map();
+
+  groups.flat().forEach((photo, index) => {
+    if (!photo) {
+      return;
+    }
+
+    const normalized = normalizeSourcePhoto(photo, index);
+    const key = getSourcePhotoKey(normalized);
+
+    if (!merged.has(key)) {
+      merged.set(key, normalized);
+    }
+  });
+
+  return [...merged.values()];
+}
+
+function buildDisplayPhotos(sourcePhotos) {
+  if (!sourcePhotos.length) {
+    return [...SAMPLE_PHOTOS];
+  }
+
+  const slotCount = Math.max(PHOTO_SLOT_COUNT, sourcePhotos.length);
+
+  return Array.from({ length: slotCount }, (_, slotIndex) => {
+    const basePhoto = sourcePhotos[slotIndex % sourcePhotos.length];
+
+    return {
+      ...basePhoto,
+      slotId: `${getSourcePhotoKey(basePhoto)}:slot:${slotIndex}`,
+      slotIndex,
+      isClone: slotIndex >= sourcePhotos.length,
+    };
+  });
+}
+
+function drawCoverImage(ctx, source, width, height, zoom = 1) {
+  const sourceWidth = source.width || 1;
+  const sourceHeight = source.height || 1;
+  const scale = Math.max(width / sourceWidth, height / sourceHeight) * zoom;
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  const drawX = (width - drawWidth) / 2;
+  const drawY = (height - drawHeight) / 2;
+
+  ctx.drawImage(source, drawX, drawY, drawWidth, drawHeight);
+}
+
+function drawTextureCanvas(canvas, source, { blurred = false } = {}) {
+  const ctx = canvas.getContext("2d");
+  const { width, height } = canvas;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#070111";
+  ctx.fillRect(0, 0, width, height);
+
+  if (blurred) {
+    ctx.save();
+    ctx.filter = "blur(12px) saturate(1.15)";
+    ctx.globalAlpha = 0.9;
+    drawCoverImage(ctx, source, width, height, 1.24);
+    ctx.restore();
+
+    const glow = ctx.createRadialGradient(
+      width / 2,
+      height / 2,
+      width * 0.08,
+      width / 2,
+      height / 2,
+      width * 0.68
+    );
+    glow.addColorStop(0, "rgba(255, 255, 255, 0.16)");
+    glow.addColorStop(0.55, "rgba(181, 114, 255, 0.12)");
+    glow.addColorStop(1, "rgba(7, 1, 17, 0)");
+
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+    return;
+  }
+
+  drawCoverImage(ctx, source, width, height, 1.04);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, width - 4, height - 4);
+}
+
+function createPhotoTexture(photo, index, { blurred = false } = {}) {
+  if (!photo.src) {
+    const placeholder = makePlaceholderCanvas(
+      PLACEHOLDER_COLORS[index % PLACEHOLDER_COLORS.length],
+      photo.caption || `#${index + 1}`
+    );
+
+    if (!blurred) {
+      return new THREE.CanvasTexture(placeholder);
+    }
+
+    const blurredCanvas = document.createElement("canvas");
+    blurredCanvas.width = 160;
+    blurredCanvas.height = 160;
+    drawTextureCanvas(blurredCanvas, placeholder, { blurred: true });
+    return new THREE.CanvasTexture(blurredCanvas);
+  }
+
+  const textureCanvas = document.createElement("canvas");
+  textureCanvas.width = blurred ? 160 : 256;
+  textureCanvas.height = blurred ? 160 : 256;
+  const texture = new THREE.CanvasTexture(textureCanvas);
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.onload = () => {
+    drawTextureCanvas(textureCanvas, image, { blurred });
+    texture.needsUpdate = true;
+  };
+  image.onerror = () => {
+    const fallbackCanvas = makePlaceholderCanvas(
+      PLACEHOLDER_COLORS[index % PLACEHOLDER_COLORS.length],
+      photo.caption || `#${index + 1}`
+    );
+    drawTextureCanvas(textureCanvas, fallbackCanvas, { blurred });
+    texture.needsUpdate = true;
+  };
+  image.src = photo.src;
+
+  return texture;
+}
+
+const LOCAL_PHOTOS = buildLocalPhotos(LOCAL_PHOTO_FILES);
+
 // State
 let scene, camera, renderer, raycaster, mouse;
-let particles, photoMeshes = [];
+let particles, photoMeshes = [], accentMeshes = [];
 let isDragging = false;
 let prevMouse = { x: 0, y: 0 };
 let rotX = 0.3;
@@ -339,7 +540,8 @@ let targetRotX = 0.3;
 let targetRotY = 0;
 let zoom = 1;
 let targetZoom = 1;
-let photos = [...SAMPLE_PHOTOS];
+let photoLibrary = mergePhotoSources(LOCAL_PHOTOS);
+let photos = buildDisplayPhotos(photoLibrary);
 let pendingUploadFile = null;
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 3;
@@ -363,6 +565,7 @@ function init() {
   buildParticles();
   buildGlowSphere();
   buildPhotoCards();
+  buildBlurCards();
   addLights();
   animate();
   bindEvents();
@@ -392,25 +595,35 @@ function clampZoom(nextZoom) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
 }
 
-function clearPhotoCards() {
-  photoMeshes.forEach((mesh) => {
-    scene.remove(mesh);
-    mesh.geometry.dispose();
+function disposeMesh(mesh) {
+  scene.remove(mesh);
+  mesh.geometry.dispose();
 
-    if (mesh.material.map) {
-      mesh.material.map.dispose();
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  materials.forEach((material) => {
+    if (material.map) {
+      material.map.dispose();
     }
 
-    mesh.material.dispose();
+    material.dispose();
+  });
+}
+
+function clearPhotoCards() {
+  [...photoMeshes, ...accentMeshes].forEach((mesh) => {
+    disposeMesh(mesh);
   });
 
   photoMeshes = [];
+  accentMeshes = [];
 }
 
 function renderPhotos(nextPhotos) {
-  photos = nextPhotos.length ? nextPhotos : [...SAMPLE_PHOTOS];
+  photoLibrary = nextPhotos.length ? mergePhotoSources(nextPhotos) : [];
+  photos = buildDisplayPhotos(photoLibrary);
   clearPhotoCards();
   buildPhotoCards();
+  buildBlurCards();
 }
 
 async function loadStoredPhotos() {
@@ -421,9 +634,10 @@ async function loadStoredPhotos() {
     }
 
     const data = await response.json();
-    renderPhotos(Array.isArray(data.photos) ? data.photos : []);
+    const storedPhotos = Array.isArray(data.photos) ? data.photos : [];
+    renderPhotos(mergePhotoSources(LOCAL_PHOTOS, storedPhotos));
   } catch (error) {
-    console.error(error);
+    renderPhotos(LOCAL_PHOTOS);
   }
 }
 
@@ -441,18 +655,12 @@ function connectSSE() {
       const data = JSON.parse(event.data);
       if (data.type === 'new_photo') {
         // Prepend new photo if not already in list (avoid dupes)
-        if (!photos.find(p => p.id === data.photo.id)) {
-          photos.unshift(data.photo);
-          renderPhotos(photos);
+        if (!photoLibrary.find((photo) => getSourcePhotoKey(photo) === getSourcePhotoKey(data.photo))) {
+          renderPhotos([data.photo, ...photoLibrary]);
         }
       } else if (data.type === 'recent_photos') {
         // Merge recent photos
-        data.photos.forEach(photo => {
-          if (!photos.find(p => p.id === photo.id)) {
-            photos.push(photo);
-          }
-        });
-        renderPhotos(photos);
+        renderPhotos(mergePhotoSources(photoLibrary, data.photos));
       } else if (data.type === 'error') {
         console.error('SSE error:', data.message);
       }
@@ -573,24 +781,7 @@ function buildPhotoCards() {
 function buildCard(photo, index) {
   const cardSize = 38;
   const geo = new THREE.PlaneGeometry(cardSize, cardSize);
-
-  let texture;
-  if (photo.src) {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      texture.image = img;
-      texture.needsUpdate = true;
-    };
-    img.src = photo.src;
-    texture = new THREE.Texture();
-  } else {
-    const pc = makePlaceholderCanvas(
-      PLACEHOLDER_COLORS[index % PLACEHOLDER_COLORS.length],
-      photo.caption || `#${index + 1}`
-    );
-    texture = new THREE.CanvasTexture(pc);
-  }
+  const texture = createPhotoTexture(photo, index);
 
   const mat = new THREE.MeshBasicMaterial({
     map: texture,
@@ -617,9 +808,57 @@ function buildCard(photo, index) {
     (Math.random() - 0.5) * 0.15
   );
 
+  mesh.renderOrder = 2;
   mesh.userData = { photo, index, originalPos: mesh.position.clone() };
   photoMeshes.push(mesh);
   scene.add(mesh);
+}
+
+function buildBlurCards() {
+  const accentCount = Math.min(BLUR_OBJECT_COUNT, photos.length);
+
+  for (let index = 0; index < accentCount; index += 1) {
+    const photo = photos[index % photos.length];
+    const size = 12 + Math.random() * 8;
+    const geo = new THREE.PlaneGeometry(size, size * (0.86 + Math.random() * 0.28));
+    const texture = createPhotoTexture(photo, index, { blurred: true });
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0.16 + Math.random() * 0.08,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, material);
+    const normalizedIndex = index / Math.max(accentCount, 1);
+    const angle = normalizedIndex * Math.PI * 2 + Math.random() * 0.7;
+    const radiusBase = [120, 176, 232, 310][index % 4];
+    const radius = radiusBase + (Math.random() - 0.5) * 34;
+    const height = (Math.random() - 0.5) * 210;
+
+    mesh.position.set(
+      Math.cos(angle) * radius,
+      height,
+      Math.sin(angle) * radius
+    );
+    mesh.rotation.set(
+      (Math.random() - 0.5) * 0.55,
+      angle + Math.PI / 2,
+      (Math.random() - 0.5) * 0.5
+    );
+    mesh.scale.setScalar(1.04 + Math.random() * 0.28);
+    mesh.renderOrder = 1;
+    mesh.userData = {
+      originalPos: mesh.position.clone(),
+      floatRange: 2 + Math.random() * 4,
+      pulseOffset: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.01,
+      baseScale: mesh.scale.x,
+    };
+    accentMeshes.push(mesh);
+    scene.add(mesh);
+  }
 }
 
 function addLights() {
@@ -652,6 +891,18 @@ function animate() {
     const op = m.userData.originalPos;
     m.position.y = op.y + Math.sin(clock.t * 0.6 + i * 0.9) * 4;
     m.rotation.z = Math.sin(clock.t * 0.4 + i) * 0.05;
+  });
+
+  accentMeshes.forEach((m, i) => {
+    const op = m.userData.originalPos;
+    const floatRange = m.userData.floatRange;
+    m.position.x = op.x + Math.cos(clock.t * 0.45 + i) * floatRange;
+    m.position.y = op.y + Math.sin(clock.t * 0.8 + i * 1.4) * (floatRange * 1.25);
+    m.position.z = op.z + Math.cos(clock.t * 0.52 + i * 0.8) * floatRange;
+    m.scale.setScalar(
+      m.userData.baseScale + Math.sin(clock.t + m.userData.pulseOffset) * 0.08
+    );
+    m.rotation.z += m.userData.rotationSpeed;
   });
 
   raycaster.setFromCamera(mouse, camera);
@@ -847,8 +1098,7 @@ function bindEvents() {
         throw new Error(data.error || "Upload foto gagal.");
       }
 
-      photos.push(data.photo);
-      renderPhotos(photos);
+      renderPhotos([...photoLibrary, data.photo]);
 
       resetAddPanel();
       addPanel.classList.remove("open");
