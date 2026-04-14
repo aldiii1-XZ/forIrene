@@ -8,13 +8,27 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #000;
+      background:
+        radial-gradient(circle at top, rgba(255, 102, 221, 0.08), transparent 28%),
+        radial-gradient(circle at bottom, rgba(120, 80, 255, 0.12), transparent 34%),
+        #020006;
       overflow: hidden;
       overscroll-behavior: none;
       font-family: "Georgia", serif;
       cursor: grab;
       user-select: none;
       touch-action: none;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.03), transparent 52%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.42));
+      pointer-events: none;
+      z-index: 2;
     }
 
     body.grabbing { cursor: grabbing; }
@@ -24,50 +38,116 @@
       width: 100vw;
       height: 100vh;
       touch-action: none;
+      filter: saturate(1.08) contrast(1.03);
+    }
+
+    #chrome {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(94vw, 560px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 120;
+      pointer-events: none;
+    }
+
+    .chrome-pod {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      backdrop-filter: blur(12px);
+    }
+
+    .chrome-pod.center {
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+
+    .chrome-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff62d2;
+      box-shadow: 0 0 14px rgba(255, 98, 210, 0.75);
+      flex: 0 0 auto;
     }
 
     /* UI Controls */
     #ui {
       position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 14px;
+      right: 14px;
       display: flex;
-      gap: 12px;
-      z-index: 100;
+      gap: 8px;
+      z-index: 140;
       align-items: center;
     }
 
     .ctrl-btn {
-      width: 44px;
-      height: 44px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(180, 100, 255, 0.4);
-      color: #d0aaff;
-      font-size: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 16px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s, transform 0.1s;
-      backdrop-filter: blur(10px);
+      transition: background 0.2s, transform 0.1s, border-color 0.2s;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
     }
 
     .ctrl-btn:hover {
-      background: rgba(180, 100, 255, 0.2);
-      transform: scale(1.1);
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 120, 225, 0.35);
+      transform: translateY(-1px);
     }
 
     .ctrl-btn:active { transform: scale(0.95); }
 
-    #add-photo-btn {
-      padding: 0 22px;
-      border-radius: 22px;
-      width: auto;
-      font-size: 13px;
-      letter-spacing: 0.08em;
-      gap: 6px;
+    #hero-copy {
+      position: fixed;
+      top: 15vh;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 110;
+      width: min(78vw, 620px);
+      text-align: center;
+      pointer-events: none;
+      text-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+    }
+
+    #hero-copy strong {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(255, 255, 255, 0.97);
+      font-family: "Brush Script MT", "Segoe Script", cursive;
+      font-size: clamp(26px, 4.8vw, 46px);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    #hero-copy span {
+      color: rgba(235, 220, 255, 0.78);
+      font-size: clamp(11px, 1.5vw, 13px);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
     }
 
     /* Photo modal lightbox */
@@ -130,112 +210,65 @@
 
     #lightbox-close:hover { color: #fff; }
 
-    /* Add photo panel */
-    #add-panel {
-      position: fixed;
-      bottom: 90px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10, 5, 20, 0.92);
-      border: 1px solid rgba(180, 100, 255, 0.3);
-      border-radius: 16px;
-      padding: 20px 24px;
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 150;
-      width: 300px;
-      backdrop-filter: blur(20px);
-    }
-
-    #add-panel.open { display: flex; }
-
-    #add-panel label {
-      color: #c0aadd;
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-    }
-
-    #add-panel input[type="text"] {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(180, 100, 255, 0.25);
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: #fff;
-      font-size: 13px;
-      outline: none;
-      width: 100%;
-    }
-
-    #add-panel input[type="file"] { display: none; }
-
-    .file-label {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 10px;
-      border: 1.5px dashed rgba(180, 100, 255, 0.35);
-      border-radius: 8px;
-      color: #a080cc;
-      font-size: 12px;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-    }
-
-    .file-label:hover {
-      border-color: rgba(180, 100, 255, 0.7);
-      background: rgba(180, 100, 255, 0.07);
-    }
-
-    #preview-thumb {
-      width: 60px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 6px;
-      display: none;
-      margin: 0 auto;
-      border: 1px solid rgba(180, 100, 255, 0.4);
-    }
-
-    #add-error {
-      min-height: 16px;
-      color: #ff9fbf;
-      font-size: 11px;
-      text-align: center;
-    }
-
-    .add-submit {
-      padding: 10px;
-      background: rgba(160, 80, 255, 0.25);
-      border: 1px solid rgba(180, 100, 255, 0.5);
-      border-radius: 8px;
-      color: #d0aaff;
-      font-size: 13px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .add-submit:hover { background: rgba(160, 80, 255, 0.45); }
-
-    .add-submit:disabled {
-      opacity: 0.7;
-      cursor: wait;
-    }
-
     /* Top hint */
     #hint {
       position: fixed;
-      top: 16px;
+      bottom: 18px;
       left: 50%;
       transform: translateX(-50%);
-      color: rgba(180, 120, 255, 0.5);
-      font-size: 11px;
-      letter-spacing: 0.25em;
+      color: rgba(233, 220, 255, 0.44);
+      font-size: 10px;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
       pointer-events: none;
       text-align: center;
+      z-index: 120;
+    }
+
+    .floating-pink-dot {
+      position: fixed;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ff7fe1 0%, #ff45c8 55%, #b40f86 100%);
+      box-shadow: 0 0 22px rgba(255, 76, 201, 0.55);
+      pointer-events: none;
+      z-index: 105;
+    }
+
+    .floating-pink-dot.dot-a {
+      top: 22%;
+      right: 22px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .floating-pink-dot.dot-b {
+      top: 58%;
+      left: 24px;
+      width: 10px;
+      height: 10px;
+      opacity: 0.85;
+    }
+
+    @media (max-width: 720px) {
+      #chrome {
+        width: calc(100vw - 72px);
+      }
+
+      .chrome-pod {
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 10px;
+      }
+
+      #hero-copy {
+        top: 17vh;
+        width: calc(100vw - 40px);
+      }
+
+      #hint {
+        width: calc(100vw - 40px);
+        line-height: 1.5;
+      }
     }
   </style>
 </head>
@@ -243,25 +276,28 @@
 
 <canvas id="c"></canvas>
 
+<div id="chrome" aria-hidden="true">
+  <div class="chrome-pod">
+    <span class="chrome-dot"></span>
+    <span>Love Planet</span>
+  </div>
+  <div class="chrome-pod center" id="chrome-domain">forirene.vercel.app</div>
+</div>
+
+<div id="hero-copy" aria-hidden="true">
+  <strong>Only For You, Irene</strong>
+  <span>A private galaxy of memories</span>
+</div>
+
+<span class="floating-pink-dot dot-a" aria-hidden="true"></span>
+<span class="floating-pink-dot dot-b" aria-hidden="true"></span>
+
 <div id="hint">Drag to rotate &nbsp;&middot;&nbsp; Scroll to zoom &nbsp;&middot;&nbsp; Click photo to open</div>
 
 <div id="ui">
   <button class="ctrl-btn" id="zoom-out" title="Zoom out">−</button>
   <button class="ctrl-btn" id="zoom-in" title="Zoom in">+</button>
-  <button class="ctrl-btn add-photo-btn" id="add-photo-btn" title="Add photo">
-    <span>+</span><span style="font-size:12px">Add Photo</span>
-  </button>
   <button class="ctrl-btn" id="reset-btn" title="Reset view">↻</button>
-</div>
-
-<div id="add-panel">
-  <label>Add a Memory</label>
-  <label for="file-input" class="file-label">Choose Image</label>
-  <input type="file" id="file-input" accept="image/*"/>
-  <img id="preview-thumb" src="" alt="preview"/>
-  <div id="add-error"></div>
-  <input type="text" id="caption-input" placeholder="Caption (optional)..."/>
-  <button class="add-submit" id="do-add">Launch into Galaxy ✦</button>
 </div>
 
 <div id="lightbox">
@@ -542,7 +578,6 @@ let zoom = 1;
 let targetZoom = 1;
 let photoLibrary = mergePhotoSources(LOCAL_PHOTOS);
 let photos = buildDisplayPhotos(photoLibrary);
-let pendingUploadFile = null;
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 3;
 
@@ -571,23 +606,9 @@ function init() {
   bindEvents();
   loadStoredPhotos();
   connectSSE();
-}
-
-function resetAddPanel({ keepCaption = false } = {}) {
-  const fileInput = document.getElementById("file-input");
-  const previewThumb = document.getElementById("preview-thumb");
-  const errorBox = document.getElementById("add-error");
-  const captionInput = document.getElementById("caption-input");
-
-  pendingUploadFile = null;
-  fileInput.value = "";
-  previewThumb.src = "";
-  previewThumb.style.display = "none";
-  previewThumb.dataset.src = "";
-  errorBox.textContent = "";
-
-  if (!keepCaption) {
-    captionInput.value = "";
+  const chromeDomain = document.getElementById("chrome-domain");
+  if (chromeDomain) {
+    chromeDomain.textContent = location.host || "forirene.vercel.app";
   }
 }
 
@@ -597,15 +618,19 @@ function clampZoom(nextZoom) {
 
 function disposeMesh(mesh) {
   scene.remove(mesh);
-  mesh.geometry.dispose();
-
-  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-  materials.forEach((material) => {
-    if (material.map) {
-      material.map.dispose();
+  mesh.traverse((node) => {
+    if (node.geometry) {
+      node.geometry.dispose();
     }
 
-    material.dispose();
+    const materials = Array.isArray(node.material) ? node.material : [node.material];
+    materials.filter(Boolean).forEach((material) => {
+      if (material.map) {
+        material.map.dispose();
+      }
+
+      material.dispose();
+    });
   });
 }
 
@@ -779,17 +804,31 @@ function buildPhotoCards() {
 }
 
 function buildCard(photo, index) {
-  const cardSize = 38;
-  const geo = new THREE.PlaneGeometry(cardSize, cardSize);
+  const cardWidth = 52;
+  const cardHeight = 52;
+  const geo = new THREE.PlaneGeometry(cardWidth, cardHeight);
   const texture = createPhotoTexture(photo, index);
 
   const mat = new THREE.MeshBasicMaterial({
     map: texture,
-    transparent: true,
+    transparent: false,
+    opacity: 1,
     side: THREE.DoubleSide,
+    toneMapped: false,
   });
 
   const mesh = new THREE.Mesh(geo, mat);
+  const backPlate = new THREE.Mesh(
+    new THREE.PlaneGeometry(cardWidth + 5, cardHeight + 5),
+    new THREE.MeshBasicMaterial({
+      color: 0x120417,
+      transparent: true,
+      opacity: 0.96,
+      side: THREE.DoubleSide,
+    })
+  );
+  backPlate.position.z = -1.2;
+  mesh.add(backPlate);
 
   const normalizedIndex = index / Math.max(photos.length, 1);
   const angle = normalizedIndex * Math.PI * 2 + Math.random() * 0.35;
@@ -924,13 +963,6 @@ function animate() {
 // Events
 function bindEvents() {
   const canvas = renderer.domElement;
-  const addPanel = document.getElementById("add-panel");
-  const fileInput = document.getElementById("file-input");
-  const previewThumb = document.getElementById("preview-thumb");
-  const captionInput = document.getElementById("caption-input");
-  const errorBox = document.getElementById("add-error");
-  const submitButton = document.getElementById("do-add");
-  const submitButtonDefaultText = submitButton.textContent;
 
   ["gesturestart", "gesturechange", "gestureend"].forEach((eventName) => {
     document.addEventListener(eventName, (e) => {
@@ -1041,73 +1073,6 @@ function bindEvents() {
     targetRotX = 0.3;
     targetRotY = 0;
     targetZoom = 1;
-  };
-
-  document.getElementById("add-photo-btn").onclick = () => {
-    const willOpen = !addPanel.classList.contains("open");
-    addPanel.classList.toggle("open");
-
-    if (!willOpen) {
-      resetAddPanel();
-    }
-  };
-
-  fileInput.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      resetAddPanel({ keepCaption: true });
-      errorBox.textContent = "File harus berupa gambar.";
-      return;
-    }
-
-    pendingUploadFile = file;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      previewThumb.src = ev.target.result;
-      previewThumb.style.display = "block";
-      previewThumb.dataset.src = ev.target.result;
-      errorBox.textContent = "";
-    };
-    reader.readAsDataURL(file);
-  };
-
-  submitButton.onclick = async () => {
-    if (!pendingUploadFile) {
-      errorBox.textContent = "Pilih foto dulu.";
-      return;
-    }
-
-    const caption = captionInput.value.trim() || `Photo ${photos.length + 1}`;
-    const formData = new FormData();
-    formData.append("file", pendingUploadFile);
-    formData.append("caption", caption);
-
-    submitButton.disabled = true;
-    submitButton.textContent = "Uploading...";
-    errorBox.textContent = "Menyimpan foto...";
-
-    try {
-      const response = await fetch("/api/photos", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.photo) {
-        throw new Error(data.error || "Upload foto gagal.");
-      }
-
-      renderPhotos([...photoLibrary, data.photo]);
-
-      resetAddPanel();
-      addPanel.classList.remove("open");
-    } catch (error) {
-      errorBox.textContent = error.message || "Upload foto gagal.";
-    } finally {
-      submitButton.disabled = false;
-      submitButton.textContent = submitButtonDefaultText;
-    }
   };
 
   document.getElementById("lightbox-close").onclick = closeLightbox;
